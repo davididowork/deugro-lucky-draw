@@ -2,20 +2,28 @@ import { useState } from "react";
 
 const questions = [
   {
-    question: "Copilot 属于哪个公司？",
-    options: ["Google", "Microsoft", "Apple", "Meta"],
-    answer: "Microsoft",
+    question: "deugro成立于哪一年？",
+    options: ["1980", "1990", "2000", "2010"],
+    answer: "1980",
   },
   {
-    question: "GitHub Copilot 主要用于什么？",
-    options: ["视频剪辑", "编程辅助", "财务报销", "邮件发送"],
-    answer: "编程辅助",
+    question: "亚洲区总部在哪？",
+    options: ["上海", "香港", "新加坡", "东京"],
+    answer: "上海",
   },
   {
-    question: "React 是什么？",
-    options: ["前端框架", "数据库", "操作系统", "浏览器"],
-    answer: "前端框架",
+    question: "本次活动主题是什么？",
+    options: ["生命科学", "物流", "安全", "ESG"],
+    answer: "生命科学",
   },
+];
+
+const prizePool = [
+  ...Array(3).fill("🏆 特等奖"),
+  ...Array(10).fill("🥇 一等奖"),
+  ...Array(20).fill("🥈 二等奖"),
+  ...Array(30).fill("🥉 三等奖"),
+  ...Array(100).fill("🎁 参与奖"),
 ];
 
 export default function App() {
@@ -38,15 +46,11 @@ export default function App() {
   };
 
   const drawPrize = () => {
-    const random = Math.random() * 100;
+    const randomIndex = Math.floor(
+      Math.random() * prizePool.length
+    );
 
-    if (random < 5) {
-      setPrize("🏆 特等奖");
-    } else if (random < 30) {
-      setPrize("🥇 一等奖");
-    } else {
-      setPrize("🥈 二等奖");
-    }
+    setPrize(prizePool[randomIndex]);
   };
 
   if (!started) {
@@ -56,18 +60,18 @@ export default function App() {
 
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
           placeholder="请输入姓名"
-          style={inputStyle}
+          onChange={(e) => setName(e.target.value)}
+          style={input}
         />
 
         <br />
 
         <button
-          style={buttonStyle}
+          style={button}
           onClick={() => {
             if (!name.trim()) {
-              alert("请先输入姓名");
+              alert("请输入姓名");
               return;
             }
             setStarted(true);
@@ -85,7 +89,7 @@ export default function App() {
         <h1>📋 答题环节</h1>
 
         {questions.map((q, index) => (
-          <div key={index} style={cardStyle}>
+          <div key={index} style={card}>
             <h3>
               {index + 1}. {q.question}
             </h3>
@@ -95,7 +99,7 @@ export default function App() {
                 <label>
                   <input
                     type="radio"
-                    name={`q${index}`}
+                    name={`q-${index}`}
                     value={option}
                     onChange={() =>
                       setAnswers({
@@ -104,7 +108,7 @@ export default function App() {
                       })
                     }
                   />
-                  {"  "}
+                  {" "}
                   {option}
                 </label>
               </div>
@@ -112,7 +116,7 @@ export default function App() {
           </div>
         ))}
 
-        <button style={buttonStyle} onClick={submitQuiz}>
+        <button style={button} onClick={submitQuiz}>
           提交答案
         </button>
       </div>
@@ -126,45 +130,45 @@ export default function App() {
       <h2>{name}</h2>
 
       <h2>
-        得分：{score}/{questions.length}
+        得分：{score}/3
       </h2>
 
       {score >= 2 ? (
         <>
-          <p style={{ color: "green", fontSize: "20px" }}>
-            ✅ 恭喜获得抽奖资格
-          </p>
+          <h3 style={{ color: "green" }}>
+            ✅ 获得抽奖资格
+          </h3>
 
           {!prize && (
-            <button style={buttonStyle} onClick={drawPrize}>
-              开始抽奖
+            <button style={button} onClick={drawPrize}>
+              立即抽奖
             </button>
           )}
 
           {prize && (
-            <div style={resultStyle}>
+            <div style={result}>
               <h1>{prize}</h1>
             </div>
           )}
         </>
       ) : (
-        <p style={{ color: "red", fontSize: "20px" }}>
-          ❌ 未达到抽奖要求（至少答对2题）
-        </p>
+        <h3 style={{ color: "red" }}>
+          ❌ 需答对2题才能抽奖
+        </h3>
       )}
     </div>
   );
 }
 
 const container = {
-  maxWidth: "700px",
+  maxWidth: "800px",
   margin: "40px auto",
   padding: "20px",
-  textAlign: "center",
   fontFamily: "Arial",
+  textAlign: "center",
 };
 
-const cardStyle = {
+const card = {
   border: "1px solid #ddd",
   borderRadius: "8px",
   padding: "15px",
@@ -172,23 +176,23 @@ const cardStyle = {
   textAlign: "left",
 };
 
-const inputStyle = {
+const input = {
   padding: "10px",
   width: "250px",
-  marginBottom: "20px",
 };
 
-const buttonStyle = {
+const button = {
+  marginTop: "20px",
   padding: "12px 24px",
-  background: "#2563eb",
+  backgroundColor: "#2563eb",
   color: "white",
   border: "none",
   borderRadius: "6px",
   cursor: "pointer",
 };
 
-const resultStyle = {
-  marginTop: "20px",
+const result = {
+  marginTop: "30px",
   padding: "20px",
   background: "#f3f4f6",
   borderRadius: "10px",
