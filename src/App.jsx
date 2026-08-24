@@ -10,19 +10,44 @@ const INITIAL_POOL = {
 
 const questions = [
   {
-    question: "deugro成立于哪一年？",
-    options: ["1924", "1980", "2000", "2010"],
-    answer: "1924",
+    question: "Q1. 德高集团成立于哪一年？起源于哪个国家？\nWhen and where was deugro established?",
+    options: [
+      "A. 1900，英国（UK）",
+      "B. 1924，德国（Germany）",
+      "C. 1980，美国（USA）",
+      "D. 2010，新加坡（Singapore）",
+    ],
+    answer: "B. 1924，德国（Germany）",
   },
   {
-    question: "德高中国区的总部在哪？",
-    options: ["北京", "上海", "青岛", "台湾"],
-    answer: "上海",
+    question: "Q2. 德高的全球业务网络覆盖多少个国家及分支机构？\nHow many countries and offices does deugro's global network span?",
+    options: [
+      "A. 10+ Countries / 20+ Offices",
+      "B. 20+ Countries / 30+ Offices",
+      "C. 30+ Countries / 50+ Offices",
+      "D. 40+ Countries / 70+ Offices",
+    ],
+    answer: "D. 40+ Countries / 70+ Offices",
   },
   {
-    question: "本次活动主题是什么？",
-    options: ["生命科学", "物流", "安全", "ESG"],
-    answer: "生命科学",
+    question: "Q3. 以下哪项属于德高生命科学与医疗行业的核心服务？\nWhich of the following is a core service of deugro's Life Sciences & Healthcare sector?",
+    options: [
+      "A. 药品研发 Drug Research & Development",
+      "B. 临床试验受试者招募 Clinical Trial Participant Recruitment",
+      "C. 临床试验供应链管理 Clinical Trial Supply Chain Management",
+      "D. 药品生产制造 Pharmaceutical Manufacturing",
+    ],
+    answer: "C. 临床试验供应链管理 Clinical Trial Supply Chain Management",
+  },
+  {
+    question: "Q4. 德高临床供应链可支持的温控范围包括？\nWhich temperature ranges can be supported by deugro's clinical supply chain solutions?",
+    options: [
+      "A. 15-25°C",
+      "B. 2-8°C",
+      "C. -20°C",
+      "D. 以上全部 All of the above",
+    ],
+    answer: "D. 以上全部 All of the above",
   },
 ];
 
