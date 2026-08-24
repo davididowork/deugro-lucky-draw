@@ -67,6 +67,9 @@ export default function App() {
   const [poolError, setPoolError] = useState("");
   const [pool, setPool] = useState(INITIAL_POOL);
   const [poolSynced, setPoolSynced] = useState(false);
+  const [poolReady, setPoolReady] = useState(false);
+  const [cloudConnected, setCloudConnected] = useState(false);
+  const [initializingPool, setInitializingPool] = useState(false);
 
   const totalRemaining = Object.values(pool).reduce((sum, count) => sum + Number(count || 0), 0);
 
@@ -78,6 +81,27 @@ export default function App() {
     }
 
     setAdminError("口令错误，请重试");
+  };
+
+  const initializeCloudPool = async () => {
+    if (!database || initializingPool) {
+      return;
+    }
+
+    setInitializingPool(true);
+    try {
+      await set(ref(database, "prizePool"), INITIAL_POOL);
+      setPool(INITIAL_POOL);
+      setPoolReady(true);
+      setPoolSynced(true);
+      setPoolError("");
+    } catch (error) {
+      const message = error?.message || "未知错误";
+      setPoolError(`云端奖池初始化失败：${message}`);
+      setPoolReady(false);
+    } finally {
+      setInitializingPool(false);
+    }
   };
 
   useEffect(() => {
@@ -92,6 +116,10 @@ export default function App() {
     }
 
     const poolRef = ref(database, "prizePool");
+    const unsubscribeConnected = onValue(ref(database, ".info/connected"), (snapshot) => {
+      setCloudConnected(Boolean(snapshot.val()));
+    });
+
     const unsubscribe = onValue(
       poolRef,
       (snapshot) => {
@@ -100,22 +128,37 @@ export default function App() {
           setPool(remotePool);
           setPoolError("");
           setPoolSynced(true);
+          setPoolReady(true);
         } else {
-          setPoolSynced(false);
-          set(poolRef, INITIAL_POOL).catch(() => {
-            setPoolError("云端奖池初始化失败，请检查 Firebase 配置");
-          });
+          setPoolSynced(true);
+          setPoolReady(false);
+          set(poolRef, INITIAL_POOL)
+            .then(() => {
+              setPool(INITIAL_POOL);
+              setPoolReady(true);
+              setPoolError("");
+            })
+            .catch((error) => {
+              const message = error?.message || "未知错误";
+              setPoolError(`已连接云端，但奖池为空且无写入权限：${message}`);
+            });
         }
         setPoolLoading(false);
       },
-      () => {
+      (error) => {
+        const code = error?.code ? `${error.code} ` : "";
+        const message = error?.message || "未知错误";
         setPoolLoading(false);
         setPoolSynced(false);
-        setPoolError("云端连接失败，暂时无法保证跨设备同步");
+        setPoolReady(false);
+        setPoolError(`云端连接失败：${code}${message}`);
       }
     );
 
-    return unsubscribe;
+    return () => {
+      unsubscribeConnected();
+      unsubscribe();
+    };
   }, []);
   const submitQuiz = () => {
     let correct = 0;
@@ -130,36 +173,108 @@ export default function App() {
   };
 
   const drawPrize = async () => {
-    if (poolLoading || !poolSynced || !database) {
+    if (poolLoading || !poolSynced || !poolReady || !database) {
       if (!poolLoading) {
-        setPoolError("奖池未同步到云端，当前无法抽奖");
+        setPoolError("奖池尚未就绪，请先确保云端同步成功并完成初始化");
       }
       return;
     }
 
     let selectedPrize = "";
-    const result = await runTransaction(ref(database, "prizePool"), (currentPool) => {
-      const safePool = currentPool || INITIAL_POOL;
-      const availablePrizes = Object.entries(safePool).flatMap(([prizeType, count]) =>
-        Array(count).fill(prizeType)
-      );
-      if (availablePrizes.length === 0) {
-        return;
+    try {
+      const result = await runTransaction(ref(database, "prizePool"), (currentPool) => {
+        const safePool = currentPool || INITIAL_POOL;
+        const availablePrizes = Object.entries(safePool).flatMap(([prizeType, count]) =>
+          Array(count).fill(prizeType)
+        );
+        if (availablePrizes.length === 0) {
+          return;
+        }
+
+        selectedPrize = availablePrizes[Math.floor(Math.random() * availablePrizes.length)];
+        return { ...safePool, [selectedPrize]: safePool[selectedPrize] - 1 };
+      });
+
+      if (result.committed && selectedPrize) {
+        setPrize(selectedPrize);
+        setPoolError("");
+      } else if (!selectedPrize) {
+        setPrize("🎉 所有奖项已抽完");
+      } else {
+        setPoolError("抽奖失败，请稍后重试");
       }
-
-      selectedPrize = availablePrizes[Math.floor(Math.random() * availablePrizes.length)];
-      return { ...safePool, [selectedPrize]: safePool[selectedPrize] - 1 };
-    });
-
-    if (result.committed && selectedPrize) {
-      setPrize(selectedPrize);
-      setPoolError("");
-    } else if (!selectedPrize) {
-      setPrize("🎉 所有奖项已抽完");
-    } else {
-      setPoolError("抽奖失败，请稍后重试");
+    } catch (error) {
+      const code = error?.code ? `${error.code} ` : "";
+      const message = error?.message || "未知错误";
+      setPoolError(`抽奖失败：${code}${message}`);
     }
   };
+
+  const renderAdminPanel = () => (
+    <div style={styles.adminPanel}>
+      {!adminAuthed ? (
+        <>
+          <p style={{ marginBottom: "8px", fontWeight: "bold" }}>输入管理员口令</p>
+          <input
+            style={styles.input}
+            placeholder="请输入口令"
+            value={adminCode}
+            onChange={(e) => {
+              setAdminCode(e.target.value);
+              setAdminError("");
+            }}
+          />
+          <button style={styles.button} onClick={verifyAdminCode}>
+            进入监控
+          </button>
+          {adminError && <p style={{ color: "#b91c1c", marginTop: "8px" }}>{adminError}</p>}
+        </>
+      ) : (
+        <>
+          <p style={{ marginBottom: "10px", fontWeight: "bold" }}>实时奖池监控</p>
+          <p style={{ margin: "4px 0" }}>
+            云端连接：
+            <span style={{ color: cloudConnected ? "#065f46" : "#b45309", fontWeight: "bold" }}>
+              {cloudConnected ? "在线" : "离线"}
+            </span>
+          </p>
+          <p style={{ margin: "4px 0" }}>
+            同步状态：
+            <span style={{ color: poolSynced ? "#065f46" : "#b45309", fontWeight: "bold" }}>
+              {poolLoading ? "同步中" : poolSynced ? "已同步" : "未同步"}
+            </span>
+          </p>
+          <p style={{ margin: "4px 0" }}>
+            奖池状态：
+            <span style={{ color: poolReady ? "#065f46" : "#b45309", fontWeight: "bold" }}>
+              {poolReady ? "已就绪" : "未初始化"}
+            </span>
+          </p>
+          <p style={{ margin: "4px 0 10px" }}>奖池剩余总数：{totalRemaining}</p>
+
+          {!poolReady && (
+            <button
+              style={styles.button}
+              onClick={initializeCloudPool}
+              disabled={!poolSynced || initializingPool || !cloudConnected}
+            >
+              {initializingPool ? "初始化中..." : "初始化云端奖池"}
+            </button>
+          )}
+
+          <div style={{ textAlign: "left", marginTop: "10px" }}>
+            {Object.entries(pool).map(([prizeType, count]) => (
+              <p key={prizeType} style={{ fontSize: "13px", margin: "4px 0" }}>
+                {prizeType}: <span style={{ color: count > 0 ? "#10b981" : "#ef4444" }}>{count}</span>
+              </p>
+            ))}
+          </div>
+
+          {poolError && <p style={{ color: "#b45309", marginTop: "8px" }}>{poolError}</p>}
+        </>
+      )}
+    </div>
+  );
 
   if (!started) {
     return (
@@ -171,47 +286,7 @@ export default function App() {
           管理员入口（口令123）
         </button>
 
-        {showAdminPanel && (
-          <div style={styles.adminPanel}>
-            {!adminAuthed ? (
-              <>
-                <p style={{ marginBottom: "8px", fontWeight: "bold" }}>输入管理员口令</p>
-                <input
-                  style={styles.input}
-                  placeholder="请输入口令"
-                  value={adminCode}
-                  onChange={(e) => {
-                    setAdminCode(e.target.value);
-                    setAdminError("");
-                  }}
-                />
-                <button style={styles.button} onClick={verifyAdminCode}>
-                  进入监控
-                </button>
-                {adminError && <p style={{ color: "#b91c1c", marginTop: "8px" }}>{adminError}</p>}
-              </>
-            ) : (
-              <>
-                <p style={{ marginBottom: "10px", fontWeight: "bold" }}>实时奖池监控</p>
-                <p style={{ margin: "4px 0" }}>
-                  同步状态：
-                  <span style={{ color: poolSynced ? "#065f46" : "#b45309", fontWeight: "bold" }}>
-                    {poolLoading ? "同步中" : poolSynced ? "已同步" : "未同步"}
-                  </span>
-                </p>
-                <p style={{ margin: "4px 0 10px" }}>奖池剩余总数：{totalRemaining}</p>
-                <div style={{ textAlign: "left" }}>
-                  {Object.entries(pool).map(([prizeType, count]) => (
-                    <p key={prizeType} style={{ fontSize: "13px", margin: "4px 0" }}>
-                      {prizeType}: <span style={{ color: count > 0 ? "#10b981" : "#ef4444" }}>{count}</span>
-                    </p>
-                  ))}
-                </div>
-                {poolError && <p style={{ color: "#b45309", marginTop: "8px" }}>{poolError}</p>}
-              </>
-            )}
-          </div>
-        )}
+        {showAdminPanel && renderAdminPanel()}
 
         <h1>
           🎉 问答抽奖
@@ -251,47 +326,7 @@ export default function App() {
           管理员入口（口令123）
         </button>
 
-        {showAdminPanel && (
-          <div style={styles.adminPanel}>
-            {!adminAuthed ? (
-              <>
-                <p style={{ marginBottom: "8px", fontWeight: "bold" }}>输入管理员口令</p>
-                <input
-                  style={styles.input}
-                  placeholder="请输入口令"
-                  value={adminCode}
-                  onChange={(e) => {
-                    setAdminCode(e.target.value);
-                    setAdminError("");
-                  }}
-                />
-                <button style={styles.button} onClick={verifyAdminCode}>
-                  进入监控
-                </button>
-                {adminError && <p style={{ color: "#b91c1c", marginTop: "8px" }}>{adminError}</p>}
-              </>
-            ) : (
-              <>
-                <p style={{ marginBottom: "10px", fontWeight: "bold" }}>实时奖池监控</p>
-                <p style={{ margin: "4px 0" }}>
-                  同步状态：
-                  <span style={{ color: poolSynced ? "#065f46" : "#b45309", fontWeight: "bold" }}>
-                    {poolLoading ? "同步中" : poolSynced ? "已同步" : "未同步"}
-                  </span>
-                </p>
-                <p style={{ margin: "4px 0 10px" }}>奖池剩余总数：{totalRemaining}</p>
-                <div style={{ textAlign: "left" }}>
-                  {Object.entries(pool).map(([prizeType, count]) => (
-                    <p key={prizeType} style={{ fontSize: "13px", margin: "4px 0" }}>
-                      {prizeType}: <span style={{ color: count > 0 ? "#10b981" : "#ef4444" }}>{count}</span>
-                    </p>
-                  ))}
-                </div>
-                {poolError && <p style={{ color: "#b45309", marginTop: "8px" }}>{poolError}</p>}
-              </>
-            )}
-          </div>
-        )}
+        {showAdminPanel && renderAdminPanel()}
 
         <h1>📋 答题环节</h1>
 
@@ -340,47 +375,7 @@ export default function App() {
         管理员入口（口令123）
       </button>
 
-      {showAdminPanel && (
-        <div style={styles.adminPanel}>
-          {!adminAuthed ? (
-            <>
-              <p style={{ marginBottom: "8px", fontWeight: "bold" }}>输入管理员口令</p>
-              <input
-                style={styles.input}
-                placeholder="请输入口令"
-                value={adminCode}
-                onChange={(e) => {
-                  setAdminCode(e.target.value);
-                  setAdminError("");
-                }}
-              />
-              <button style={styles.button} onClick={verifyAdminCode}>
-                进入监控
-              </button>
-              {adminError && <p style={{ color: "#b91c1c", marginTop: "8px" }}>{adminError}</p>}
-            </>
-          ) : (
-            <>
-              <p style={{ marginBottom: "10px", fontWeight: "bold" }}>实时奖池监控</p>
-              <p style={{ margin: "4px 0" }}>
-                同步状态：
-                <span style={{ color: poolSynced ? "#065f46" : "#b45309", fontWeight: "bold" }}>
-                  {poolLoading ? "同步中" : poolSynced ? "已同步" : "未同步"}
-                </span>
-              </p>
-              <p style={{ margin: "4px 0 10px" }}>奖池剩余总数：{totalRemaining}</p>
-              <div style={{ textAlign: "left" }}>
-                {Object.entries(pool).map(([prizeType, count]) => (
-                  <p key={prizeType} style={{ fontSize: "13px", margin: "4px 0" }}>
-                    {prizeType}: <span style={{ color: count > 0 ? "#10b981" : "#ef4444" }}>{count}</span>
-                  </p>
-                ))}
-              </div>
-              {poolError && <p style={{ color: "#b45309", marginTop: "8px" }}>{poolError}</p>}
-            </>
-          )}
-        </div>
-      )}
+      {showAdminPanel && renderAdminPanel()}
 
       <h1>🎯 答题结果</h1>
 
@@ -400,16 +395,18 @@ export default function App() {
             <button
               style={styles.button}
               onClick={drawPrize}
-              disabled={poolLoading || !poolSynced}
+              disabled={poolLoading || !poolSynced || !poolReady}
             >
-              {poolLoading ? "正在同步奖池..." : poolSynced ? "开始抽奖" : "等待云端同步"}
+              {poolLoading ? "正在同步奖池..." : poolSynced && poolReady ? "开始抽奖" : "等待云端就绪"}
             </button>
           )}
 
           {poolError && <p style={{ color: "#b45309" }}>{poolError}</p>}
 
           <p style={{ color: poolSynced ? "#065f46" : "#b45309", marginTop: "12px" }}>
-            {poolSynced ? "已连接云端奖池，所有设备实时同步" : "云端奖池未就绪，已暂停抽奖以避免不同步"}
+            {poolSynced && poolReady
+              ? "已连接云端奖池，所有设备实时同步"
+              : "云端奖池未就绪，已暂停抽奖以避免不同步"}
           </p>
 
           {prize && (
