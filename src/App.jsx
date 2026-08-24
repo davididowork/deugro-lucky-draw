@@ -63,6 +63,26 @@ export default function App() {
   });
   const [resetClicks, setResetClicks] = useState(0);
 
+  // Admin panel visibility
+  const [adminVisible, setAdminVisible] = useState(false);
+
+  useEffect(() => {
+    // Listen to localStorage changes from other tabs so admin view is "real-time"
+    const onStorage = (e) => {
+      if (e.key === "prizePool") {
+        try {
+          const newPool = JSON.parse(e.newValue);
+          setPool(newPool);
+        } catch (err) {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const handleTitleClick = () => {
     setResetClicks(resetClicks + 1);
     if (resetClicks + 1 === 3) {
@@ -117,6 +137,61 @@ export default function App() {
     setPrize(selectedPrize);
   };
 
+  // Hidden admin button handler
+  const handleAdminButtonClick = () => {
+    const input = window.prompt("请输入管理员姓名：");
+    if (input === "zyh") {
+      setAdminVisible(true);
+    } else if (input !== null) {
+      alert("无效的姓名");
+    }
+  };
+
+  const adminElements = (
+    <>
+      <button
+        onClick={handleAdminButtonClick}
+        title="admin"
+        style={styles.hiddenAdminButton}
+      />
+
+      {adminVisible && (
+        <div style={styles.adminOverlay}>
+          <div style={styles.adminPanel}>
+            <h3 style={{ marginTop: 0 }}>内部管理 - 奖池实时状态</h3>
+            <div style={{ textAlign: "left", marginBottom: 16 }}>
+              {Object.entries(pool).map(([prizeType, count]) => (
+                <p key={prizeType} style={{ margin: "6px 0" }}>
+                  {prizeType}: <strong>{count}</strong>
+                </p>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                style={styles.button}
+                onClick={() => setAdminVisible(false)}
+              >
+                关闭
+              </button>
+              <button
+                style={{ ...styles.button, backgroundColor: "#ef4444" }}
+                onClick={() => {
+                  if (window.confirm("确定要重置奖池为初始值吗？")) {
+                    setPool(INITIAL_POOL);
+                    localStorage.setItem("prizePool", JSON.stringify(INITIAL_POOL));
+                  }
+                }}
+              >
+                重置奖池
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   if (!started) {
     return (
       <div style={styles.container}>
@@ -150,6 +225,8 @@ export default function App() {
         >
           开始答题
         </button>
+
+        {adminElements}
       </div>
     );
   }
@@ -196,6 +273,8 @@ export default function App() {
         >
           提交答案
         </button>
+
+        {adminElements}
       </div>
     );
   }
@@ -253,9 +332,11 @@ export default function App() {
         </>
       ) : (
         <p style={{ color: "red" }}>
-          ❌ 答对至少2题才能抽奖
+          ❌ 答对至少2题才能抽���
         </p>
       )}
+
+      {adminElements}
     </div>
   );
 }
@@ -295,6 +376,42 @@ const styles = {
     border: "none",
     borderRadius: "6px",
     cursor: "pointer",
+  },
+
+  // hidden small square admin button
+  hiddenAdminButton: {
+    position: "fixed",
+    left: 12,
+    bottom: 12,
+    width: 34,
+    height: 34,
+    backgroundColor: "#999",
+    opacity: 0.18,
+    border: "none",
+    borderRadius: 6,
+    cursor: "pointer",
+    zIndex: 9999,
+  },
+
+  adminOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10000,
+  },
+
+  adminPanel: {
+    width: 320,
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 8,
+    boxShadow: "0 6px 20px rgba(0,0,0,0.2)",
   },
 
   result: {
