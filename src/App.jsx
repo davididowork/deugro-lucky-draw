@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, runTransaction } from "firebase/database";
 
 const INITIAL_POOL = {
   "🏆 特等奖": 3,
@@ -53,30 +51,6 @@ const questions = [
   },
 ];
 
-// Initialize Firebase DB if environment variables are provided (Vite uses import.meta.env.VITE_...)
-let db = null;
-const USE_FIREBASE = Boolean(import.meta.env.VITE_FIREBASE_DATABASE_URL);
-if (USE_FIREBASE) {
-  try {
-    const firebaseConfig = {
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-      appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    };
-
-    const app = initializeApp(firebaseConfig);
-    db = getDatabase(app);
-    console.log("Firebase initialized");
-  } catch (err) {
-    console.warn("Failed to initialize Firebase, falling back to localStorage", err);
-    db = null;
-  }
-}
-
 export default function App() {
   const [name, setName] = useState("");
   const [started, setStarted] = useState(false);
@@ -84,46 +58,36 @@ export default function App() {
   const [score, setScore] = useState(null);
   const [prize, setPrize] = useState("");
   const [pool, setPool] = useState(() => {
-    // initial source: if firebase not configured, fall back to localStorage
     const saved = localStorage.getItem("prizePool");
     return saved ? JSON.parse(saved) : INITIAL_POOL;
   });
   const [resetClicks, setResetClicks] = useState(0);
 
-  // Admin panel visibility
-  const [adminVisible, setAdminVisible] = useState(false);
-
-  // Subscribe to Firebase Realtime Database updates when available
   useEffect(() => {
-    if (!db) return;
-    const poolRef = ref(db, "prizePool");
-    const unsubscribe = onValue(poolRef, (snapshot) => {
-      const val = snapshot.val() ?? INITIAL_POOL;
-      setPool(val);
-      try {
-        localStorage.setItem("prizePool", JSON.stringify(val));
-      } catch (e) {
-        // ignore
+    // Keep pool in sync when other tabs change localStorage (near real-time across tabs)
+    const onStorage = (e) => {
+      if (e.key === "prizePool") {
+        try {
+          const newPool = JSON.parse(e.newValue);
+          setPool(newPool);
+        } catch (err) {
+          // ignore parse errors
+        }
       }
-    });
+    };
 
-    return () => unsubscribe();
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const handleTitleClick = () => {
     setResetClicks((c) => c + 1);
     if (resetClicks + 1 === 3) {
       if (window.confirm("确定要重置奖池吗？")) {
-        if (db) {
-          // write initial pool to firebase
-          const poolRef = ref(db, "prizePool");
-          runTransaction(poolRef, () => ({ ...INITIAL_POOL }));
-        } else {
-          const newPool = INITIAL_POOL;
-          setPool(newPool);
-          localStorage.setItem("prizePool", JSON.stringify(newPool));
-          alert("奖池已重置");
-        }
+        const newPool = INITIAL_POOL;
+        setPool(newPool);
+        localStorage.setItem("prizePool", JSON.stringify(newPool));
+        alert("奖池已重置");
       }
       setResetClicks(0);
     }
@@ -141,11 +105,13 @@ export default function App() {
     setScore(correct);
   };
 
-  const drawPrizeLocal = () => {
-    // fallback localStorage draw (when Firebase not configured)
+  const drawPrize = () => {
+    // 构建当前可用的奖池列表
     const availablePrizes = [];
-    Object.entries(pool).forEach(([prizeName, count]) => {
-      for (let i = 0; i < count; i++) availablePrizes.push(prizeName);
+    Object.entries(pool).forEach(([prize, count]) => {
+      for (let i = 0; i < count; i++) {
+        availablePrizes.push(prize);
+      }
     });
 
     if (availablePrizes.length === 0) {
@@ -153,9 +119,13 @@ export default function App() {
       return;
     }
 
-    const randomIndex = Math.floor(Math.random() * availablePrizes.length);
+    // 随机选择一个奖项
+    const randomIndex = Math.floor(
+      Math.random() * availablePrizes.length
+    );
     const selectedPrize = availablePrizes[randomIndex];
 
+    // 更新奖池
     const newPool = { ...pool };
     newPool[selectedPrize] -= 1;
     setPool(newPool);
@@ -164,49 +134,8 @@ export default function App() {
     setPrize(selectedPrize);
   };
 
-  const drawPrizeFirebase = async () => {
-    if (!db) return drawPrizeLocal();
-    const poolRef = ref(db, "prizePool");
-    let selected = null;
-
-    try {
-      await runTransaction(poolRef, (current) => {
-        const cur = current ?? INITIAL_POOL;
-        const available = [];
-        Object.entries(cur).forEach(([k, v]) => {
-          for (let i = 0; i < v; i++) available.push(k);
-        });
-
-        if (available.length === 0) return cur; // nothing to change
-
-        const idx = Math.floor(Math.random() * available.length);
-        selected = available[idx];
-        const next = { ...cur };
-        next[selected] = (next[selected] || 0) - 1;
-        return next;
-      });
-
-      if (!selected) {
-        setPrize("🎉 所有奖项已抽完");
-      } else {
-        setPrize(selected);
-      }
-    } catch (err) {
-      console.error("drawPrizeFirebase failed", err);
-      // fallback
-      drawPrizeLocal();
-    }
-  };
-
-  const drawPrize = () => {
-    if (db) {
-      drawPrizeFirebase();
-    } else {
-      drawPrizeLocal();
-    }
-  };
-
-  // Hidden admin button handler
+  // Hidden admin button: prompt for name, enter 'zyh' to open admin panel
+  const [adminVisible, setAdminVisible] = useState(false);
   const handleAdminButtonClick = () => {
     const input = window.prompt("请输入管理员姓名：");
     if (input === "zyh") {
@@ -216,20 +145,13 @@ export default function App() {
     }
   };
 
-  const handleResetPool = () => {
-    if (db) {
-      const poolRef = ref(db, "prizePool");
-      runTransaction(poolRef, () => ({ ...INITIAL_POOL }));
-    } else {
-      setPool(INITIAL_POOL);
-      localStorage.setItem("prizePool", JSON.stringify(INITIAL_POOL));
-    }
-  };
-
   const adminElements = (
     <>
-      <button onClick={handleAdminButtonClick} title="admin" style={styles.hiddenAdminButton} />
-
+      <button
+        onClick={handleAdminButtonClick}
+        title="admin"
+        style={styles.hiddenAdminButton}
+      />
       {adminVisible && (
         <div style={styles.adminOverlay}>
           <div style={styles.adminPanel}>
@@ -250,7 +172,8 @@ export default function App() {
                 style={{ ...styles.button, backgroundColor: "#ef4444" }}
                 onClick={() => {
                   if (window.confirm("确定要重置奖池为初始值吗？")) {
-                    handleResetPool();
+                    setPool(INITIAL_POOL);
+                    localStorage.setItem("prizePool", JSON.stringify(INITIAL_POOL));
                   }
                 }}
               >
@@ -270,7 +193,12 @@ export default function App() {
           🎉 问答抽奖
         </h1>
 
-        <input style={styles.input} placeholder="请输入姓名" value={name} onChange={(e) => setName(e.target.value)} />
+        <input
+          style={styles.input}
+          placeholder="请输入姓名"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
 
         <button
           style={styles.button}
@@ -282,15 +210,10 @@ export default function App() {
 
             // 特殊测试用户
             if (name.toLowerCase() === "davidido") {
-              if (db) {
-                const poolRef = ref(db, "prizePool");
-                runTransaction(poolRef, () => ({ ...INITIAL_POOL }));
-              } else {
-                const newPool = INITIAL_POOL;
-                setPool(newPool);
-                localStorage.setItem("prizePool", JSON.stringify(newPool));
-                console.log("✨ 奖池已重置");
-              }
+              const newPool = INITIAL_POOL;
+              setPool(newPool);
+              localStorage.setItem("prizePool", JSON.stringify(newPool));
+              console.log("✨ 奖池已重置");
             }
 
             setStarted(true);
@@ -328,16 +251,17 @@ export default function App() {
                       [index]: option,
                     })
                   }
-                />
-
-                {" "}
+                />{" "}
                 {option}
               </label>
             ))}
           </div>
         ))}
 
-        <button style={styles.button} onClick={submitQuiz}>
+        <button
+          style={styles.button}
+          onClick={submitQuiz}
+        >
           提交答案
         </button>
 
@@ -358,10 +282,15 @@ export default function App() {
 
       {score >= 2 ? (
         <>
-          <p style={{ color: "green" }}>✅ 恭喜获得抽奖资格</p>
+          <p style={{ color: "green" }}>
+            ✅ 恭喜获得抽奖资格
+          </p>
 
           {!prize && (
-            <button style={styles.button} onClick={drawPrize}>
+            <button
+              style={styles.button}
+              onClick={drawPrize}
+            >
               开始抽奖
             </button>
           )}
@@ -369,7 +298,9 @@ export default function App() {
           {prize && (
             <div style={styles.result}>
               <p style={{ fontSize: "18px", marginBottom: "20px" }}>🎊 恭喜你获得了 🎊</p>
-              <h1 style={{ fontSize: "48px", color: "#d97706", marginBottom: "20px" }}>{prize}</h1>
+              <h1 style={{ fontSize: "48px", color: "#d97706", marginBottom: "20px" }}>
+                {prize}
+              </h1>
               <p style={{ fontSize: "16px", color: "#666", marginBottom: "30px" }}>感谢参与本次活动！</p>
               <div style={styles.notice}>
                 <p style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "10px" }}>⚠️ 请重要提示</p>
@@ -391,7 +322,9 @@ export default function App() {
           )}
         </>
       ) : (
-        <p style={{ color: "red" }}>❌ 答对至少2题才能抽奖</p>
+        <p style={{ color: "red" }}>
+          ❌ 答对至少2题才能抽奖
+        </p>
       )}
 
       {adminElements}
@@ -434,42 +367,6 @@ const styles = {
     border: "none",
     borderRadius: "6px",
     cursor: "pointer",
-  },
-
-  // hidden small square admin button
-  hiddenAdminButton: {
-    position: "fixed",
-    left: 12,
-    bottom: 12,
-    width: 34,
-    height: 34,
-    backgroundColor: "#999",
-    opacity: 0.18,
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-    zIndex: 9999,
-  },
-
-  adminOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10000,
-  },
-
-  adminPanel: {
-    width: 320,
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 8,
-    boxShadow: "0 6px 20px rgba(0,0,0,0.2)",
   },
 
   result: {
