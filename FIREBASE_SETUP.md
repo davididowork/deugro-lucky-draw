@@ -1,7 +1,6 @@
 # Firebase setup for deugro-lucky-draw (Realtime Database)
 
-This project supports an optional Firebase Realtime Database to make prizePool updates realtime across devices.
-If you don't configure Firebase, the app falls back to localStorage (single-browser only).
+The app uses Firebase Realtime Database to share the prize pool across devices. Draw is enabled only after cloud sync is ready, so all devices stay consistent.
 
 Steps to enable realtime cross-device updates
 
@@ -26,6 +25,7 @@ Steps to enable realtime cross-device updates
 
 4. Set environment variables
    - Create a local file named `.env` in the project root (or set environment variables in your hosting platform) and add the keys from `.env.example` with real values.
+   - For GitHub Pages, add each `VITE_FIREBASE_*` value as a repository secret under Settings -> Secrets and variables -> Actions. The deployment workflow passes them to the Vite build.
 
 5. Initialize the database initial value (optional)
    - You can open the Realtime Database data view and write the initial `prizePool` JSON:
@@ -38,7 +38,7 @@ Steps to enable realtime cross-device updates
   "🎁 参与奖": 37
 }
 
-   - If you do not initialize it, the front-end will fall back to localStorage or write the initial value on first reset.
+   - If you do not initialize it, the front-end writes the initial value when it first connects.
 
 6. Install dependencies and run locally
    - npm install
