@@ -11,11 +11,26 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
-const firebaseApp = hasFirebaseConfig
-  ? getApps().length > 0
-    ? getApp()
-    : initializeApp(firebaseConfig)
-  : null;
+const requiredFirebaseEnvKeys = [
+  "VITE_FIREBASE_API_KEY",
+  "VITE_FIREBASE_DATABASE_URL",
+  "VITE_FIREBASE_PROJECT_ID",
+];
+
+const missingRequiredFirebaseEnvKeys = requiredFirebaseEnvKeys.filter(
+  (key) => !import.meta.env[key]
+);
+
+const hasFirebaseConfig = missingRequiredFirebaseEnvKeys.length === 0;
+
+let firebaseApp = null;
+
+if (hasFirebaseConfig) {
+  firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+}
 
 export const database = firebaseApp ? getDatabase(firebaseApp) : null;
+export const firebaseConfigStatus = {
+  hasFirebaseConfig,
+  missingRequiredFirebaseEnvKeys,
+};

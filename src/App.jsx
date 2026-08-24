@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { onValue, ref, runTransaction, set } from "firebase/database";
-import { database } from "./firebase";
+import { database, firebaseConfigStatus } from "./firebase";
 
 const INITIAL_POOL = {
   "🏆 特等奖": 3,
@@ -59,7 +59,7 @@ export default function App() {
   const [answers, setAnswers] = useState({});
   const [score, setScore] = useState(null);
   const [prize, setPrize] = useState("");
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(true);
   const [adminCode, setAdminCode] = useState("");
   const [adminAuthed, setAdminAuthed] = useState(false);
   const [adminError, setAdminError] = useState("");
@@ -84,7 +84,10 @@ export default function App() {
     if (!database) {
       setPoolLoading(false);
       setPoolSynced(false);
-      setPoolError("未检测到 Firebase 配置，无法进行跨设备同步抽奖");
+      const missingKeys = firebaseConfigStatus.missingRequiredFirebaseEnvKeys.join(", ");
+      setPoolError(
+        `未检测到 Firebase 实时数据库配置，无法进行跨设备同步抽奖。缺少：${missingKeys}`
+      );
       return undefined;
     }
 
@@ -165,7 +168,7 @@ export default function App() {
           style={styles.adminEntryButton}
           onClick={() => setShowAdminPanel((prev) => !prev)}
         >
-          管理员入口
+          管理员入口（口令123）
         </button>
 
         {showAdminPanel && (
@@ -245,7 +248,7 @@ export default function App() {
           style={styles.adminEntryButton}
           onClick={() => setShowAdminPanel((prev) => !prev)}
         >
-          管理员入口
+          管理员入口（口令123）
         </button>
 
         {showAdminPanel && (
@@ -334,7 +337,7 @@ export default function App() {
         style={styles.adminEntryButton}
         onClick={() => setShowAdminPanel((prev) => !prev)}
       >
-        管理员入口
+        管理员入口（口令123）
       </button>
 
       {showAdminPanel && (
