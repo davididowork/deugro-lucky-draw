@@ -1,7 +1,9 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
-const firebaseConfig = {
+const runtimeFirebaseConfig = globalThis.window?.__FIREBASE_CONFIG__ || {};
+
+const envFirebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
@@ -11,15 +13,26 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const requiredFirebaseEnvKeys = [
-  "VITE_FIREBASE_API_KEY",
-  "VITE_FIREBASE_DATABASE_URL",
-  "VITE_FIREBASE_PROJECT_ID",
+const firebaseConfig = {
+  apiKey: envFirebaseConfig.apiKey || runtimeFirebaseConfig.apiKey || "",
+  authDomain: envFirebaseConfig.authDomain || runtimeFirebaseConfig.authDomain || "",
+  databaseURL: envFirebaseConfig.databaseURL || runtimeFirebaseConfig.databaseURL || "",
+  projectId: envFirebaseConfig.projectId || runtimeFirebaseConfig.projectId || "",
+  storageBucket: envFirebaseConfig.storageBucket || runtimeFirebaseConfig.storageBucket || "",
+  messagingSenderId:
+    envFirebaseConfig.messagingSenderId || runtimeFirebaseConfig.messagingSenderId || "",
+  appId: envFirebaseConfig.appId || runtimeFirebaseConfig.appId || "",
+};
+
+const requiredFirebaseFields = [
+  { field: "apiKey", name: "VITE_FIREBASE_API_KEY 或 firebase-config.js: apiKey" },
+  { field: "databaseURL", name: "VITE_FIREBASE_DATABASE_URL 或 firebase-config.js: databaseURL" },
+  { field: "projectId", name: "VITE_FIREBASE_PROJECT_ID 或 firebase-config.js: projectId" },
 ];
 
-const missingRequiredFirebaseEnvKeys = requiredFirebaseEnvKeys.filter(
-  (key) => !import.meta.env[key]
-);
+const missingRequiredFirebaseEnvKeys = requiredFirebaseFields
+  .filter(({ field }) => !firebaseConfig[field])
+  .map(({ name }) => name);
 
 const hasFirebaseConfig = missingRequiredFirebaseEnvKeys.length === 0;
 

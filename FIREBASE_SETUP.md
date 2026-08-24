@@ -23,9 +23,24 @@ Steps to enable realtime cross-device updates
 
   Do NOT leave these rules open in production. See "Security" below.
 
-4. Set environment variables
-   - Create a local file named `.env` in the project root (or set environment variables in your hosting platform) and add the keys from `.env.example` with real values.
-   - For GitHub Pages, add each `VITE_FIREBASE_*` value as a repository secret under Settings -> Secrets and variables -> Actions. The deployment workflow passes them to the Vite build.
+4. Configure Firebase for all devices (recommended)
+   - Edit `public/firebase-config.js` and fill your Firebase web config.
+   - This file is loaded at runtime by the browser, so GitHub Pages works without requiring Actions secrets.
+   - Required fields: `apiKey`, `databaseURL`, `projectId`.
+
+   Example:
+
+{
+  apiKey: "your_api_key",
+  authDomain: "your_project.firebaseapp.com",
+  databaseURL: "https://your-project-default-rtdb.firebaseio.com",
+  projectId: "your_project_id",
+  storageBucket: "your_project.appspot.com",
+  messagingSenderId: "your_messaging_sender_id",
+  appId: "your_app_id"
+}
+
+   - Optional alternative: keep using `VITE_FIREBASE_*` environment variables.
 
 5. Initialize the database initial value (optional)
    - You can open the Realtime Database data view and write the initial `prizePool` JSON:
