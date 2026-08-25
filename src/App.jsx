@@ -65,6 +65,10 @@ export default function App() {
   const [pool, setPool] = useState(INITIAL_POOL);
   const localMode = !database;
 
+  console.log("Firebase Mode");
+  console.log("database =", !!database);
+  console.log("pool =", pool);
+
   useEffect(() => {
     if (!database) {
       let localPool = INITIAL_POOL;
