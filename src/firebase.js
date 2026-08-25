@@ -24,17 +24,9 @@ const firebaseConfig = {
   appId: envFirebaseConfig.appId || runtimeFirebaseConfig.appId || "",
 };
 
-const requiredFirebaseFields = [
-  { field: "apiKey", name: "VITE_FIREBASE_API_KEY 或 firebase-config.js: apiKey" },
-  { field: "databaseURL", name: "VITE_FIREBASE_DATABASE_URL 或 firebase-config.js: databaseURL" },
-  { field: "projectId", name: "VITE_FIREBASE_PROJECT_ID 或 firebase-config.js: projectId" },
-];
-
-const missingRequiredFirebaseEnvKeys = requiredFirebaseFields
-  .filter(({ field }) => !firebaseConfig[field])
-  .map(({ name }) => name);
-
-const hasFirebaseConfig = missingRequiredFirebaseEnvKeys.length === 0;
+const hasFirebaseConfig = Boolean(
+  firebaseConfig.apiKey && firebaseConfig.databaseURL && firebaseConfig.projectId
+);
 
 let firebaseApp = null;
 
@@ -43,7 +35,3 @@ if (hasFirebaseConfig) {
 }
 
 export const database = firebaseApp ? getDatabase(firebaseApp) : null;
-export const firebaseConfigStatus = {
-  hasFirebaseConfig,
-  missingRequiredFirebaseEnvKeys,
-};
