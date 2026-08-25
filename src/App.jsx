@@ -63,6 +63,7 @@ export default function App() {
   const [poolLoading, setPoolLoading] = useState(Boolean(database));
   const [poolError, setPoolError] = useState("");
   const [pool, setPool] = useState(INITIAL_POOL);
+  const [showPool, setShowPool] = useState(false);
   const localMode = !database;
 
   console.log("Firebase Mode");
@@ -206,6 +207,28 @@ export default function App() {
     }
   };
 
+  const renderPoolControl = () => (
+    <div style={styles.poolControl}>
+      <button
+        type="button"
+        style={styles.poolToggle}
+        onClick={() => setShowPool(true)}
+        disabled={showPool}
+      >
+        查看剩余奖项
+      </button>
+      {showPool && (
+        <div style={styles.poolPeek}>
+          {Object.entries(pool).map(([prizeType, count]) => (
+            <div key={prizeType}>
+              {prizeType}：{count}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   if (!started) {
     return (
       <div style={styles.container}>
@@ -233,6 +256,7 @@ export default function App() {
         >
           开始答题
         </button>
+        {renderPoolControl()}
       </div>
     );
   }
@@ -274,6 +298,7 @@ export default function App() {
         >
           提交答案
         </button>
+        {renderPoolControl()}
       </div>
     );
   }
@@ -319,16 +344,6 @@ export default function App() {
                   请将您的中奖结果展示给工作人员进行确认和领奖
                 </p>
               </div>
-              <div style={styles.poolStatus}>
-                <p style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "10px" }}>📊 奖池剩余情况</p>
-                <div style={{ textAlign: "left" }}>
-                  {Object.entries(pool).map(([prizeType, count]) => (
-                    <p key={prizeType} style={{ fontSize: "13px", margin: "5px 0" }}>
-                      {prizeType}: <span style={{ color: count > 0 ? "#10b981" : "#ef4444" }}>{count}</span>
-                    </p>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
         </>
@@ -337,6 +352,7 @@ export default function App() {
           ❌ 答对至少2题才能抽奖
         </p>
       )}
+      {renderPoolControl()}
     </div>
   );
 }
@@ -378,6 +394,34 @@ const styles = {
     cursor: "pointer",
   },
 
+  poolControl: {
+    marginTop: "36px",
+    textAlign: "center",
+  },
+
+  poolToggle: {
+    padding: "4px 8px",
+    backgroundColor: "#e5e7eb",
+    color: "#6b7280",
+    border: "1px solid #d1d5db",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "11px",
+  },
+
+  poolPeek: {
+    margin: "8px auto 0",
+    padding: "8px 12px",
+    maxWidth: "220px",
+    backgroundColor: "#f8fafc",
+    border: "1px solid #e5e7eb",
+    borderRadius: "4px",
+    color: "#4b5563",
+    fontSize: "12px",
+    lineHeight: "1.8",
+    textAlign: "left",
+  },
+
   result: {
     marginTop: "20px",
     padding: "20px",
@@ -394,12 +438,4 @@ const styles = {
     textAlign: "left",
   },
 
-  poolStatus: {
-    marginTop: "20px",
-    padding: "15px",
-    backgroundColor: "#e0f2fe",
-    borderLeft: "4px solid #0284c7",
-    borderRadius: "4px",
-    textAlign: "left",
-  },
 };
