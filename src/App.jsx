@@ -64,6 +64,7 @@ export default function App() {
   const [poolError, setPoolError] = useState("");
   const [pool, setPool] = useState(INITIAL_POOL);
   const [showPool, setShowPool] = useState(false);
+  const [resettingPool, setResettingPool] = useState(false);
   const localMode = !database;
 
   console.log("Firebase Mode");
@@ -207,15 +208,37 @@ export default function App() {
     }
   };
 
+  const resetPoolForAdmin = async () => {
+    setResettingPool(true);
+    try {
+      if (localMode) {
+        window.localStorage.setItem(LOCAL_POOL_KEY, JSON.stringify(INITIAL_POOL));
+        setPool(INITIAL_POOL);
+      } else {
+        await set(ref(database, "prizePool"), INITIAL_POOL);
+      }
+      setPrize("");
+      setScore(null);
+      setAnswers({});
+      setStarted(false);
+      alert("奖池已重置");
+    } catch (error) {
+      const code = error?.code ? `${error.code} ` : "";
+      const message = error?.message || "未知错误";
+      setPoolError(`奖池重置失败：${code}${message}`);
+    } finally {
+      setResettingPool(false);
+    }
+  };
+
   const renderPoolControl = () => (
     <div style={styles.poolControl}>
       <button
         type="button"
         style={styles.poolToggle}
-        onClick={() => setShowPool(true)}
-        disabled={showPool}
+        onClick={() => setShowPool((visible) => !visible)}
       >
-        查看剩余奖项
+        {showPool ? "收回剩余奖项" : "查看剩余奖项"}
       </button>
       {showPool && (
         <div style={styles.poolPeek}>
@@ -251,10 +274,16 @@ export default function App() {
               return;
             }
 
+            if (name.trim().toLowerCase() === "davidido") {
+              resetPoolForAdmin();
+              return;
+            }
+
             setStarted(true);
           }}
+          disabled={resettingPool}
         >
-          开始答题
+          {resettingPool ? "正在重置奖池..." : "开始答题"}
         </button>
         {renderPoolControl()}
       </div>
