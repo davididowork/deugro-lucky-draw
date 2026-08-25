@@ -28,11 +28,11 @@ admin.initializeApp({
 const db = admin.database();
 
 const initialPool = {
-  "🏆 特等奖": 3,
-  "🥇 一等奖": 10,
-  "🥈 二等奖": 20,
-  "🥉 三等奖": 30,
-  "🎁 参与奖": 37
+  "🏆 特等奖": 1,
+  "🥇 一等奖": 2,
+  "🥈 二等奖": 3,
+  "🥉 三等奖": 37,
+  "🎁 参与奖": 57
 };
 
 async function writeInitialPool() {

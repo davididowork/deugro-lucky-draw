@@ -46,11 +46,11 @@ Steps to enable realtime cross-device updates
    - You can open the Realtime Database data view and write the initial `prizePool` JSON:
 
 {
-  "🏆 特等奖": 3,
-  "🥇 一等奖": 10,
-  "🥈 二等奖": 20,
-  "🥉 三等奖": 30,
-  "🎁 参与奖": 37
+   "🏆 特等奖": 1,
+   "🥇 一等奖": 2,
+   "🥈 二等奖": 3,
+   "🥉 三等奖": 37,
+   "🎁 参与奖": 57
 }
 
    - If you do not initialize it, the front-end writes the initial value when it first connects.
