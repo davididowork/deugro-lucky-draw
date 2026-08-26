@@ -9,6 +9,7 @@ const INITIAL_POOL = {
   "🥉 三等奖": 37,
   "🎁 参与奖": 57,
 };
+const PRIZE_ORDER = Object.keys(INITIAL_POOL);
 const LOCAL_POOL_KEY = "deugro-lucky-draw-prize-pool";
 
 const questions = [
@@ -242,11 +243,17 @@ export default function App() {
       </button>
       {showPool && (
         <div style={styles.poolPeek}>
-          {Object.entries(pool).map(([prizeType, count]) => (
+          {Object.entries(pool)
+            .sort(
+              ([leftPrize], [rightPrize]) =>
+                (PRIZE_ORDER.indexOf(leftPrize) + 1 || Number.MAX_SAFE_INTEGER) -
+                (PRIZE_ORDER.indexOf(rightPrize) + 1 || Number.MAX_SAFE_INTEGER)
+            )
+            .map(([prizeType, count]) => (
             <div key={prizeType}>
               {prizeType}：{count}
             </div>
-          ))}
+            ))}
         </div>
       )}
     </div>
@@ -256,7 +263,7 @@ export default function App() {
     return (
       <div style={styles.container}>
         <h1>
-          🎉 问答抽奖
+          🎉 德高问答抽奖
         </h1>
 
         <input
